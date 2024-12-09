@@ -6,7 +6,7 @@ Illuminate the room with your GitHub profile and a dynamic timeline of your cont
 
 <img src="https://github.com/user-attachments/assets/f3fe3e66-512d-4eb9-8e3e-2caab1abf674" width="50%" />
 
-[Try it out](theglowhub.vercel.app)
+[Try it out](glowhub.pages.dev)
 
 ## Change the theme (orange, purple, green)
 
@@ -24,7 +24,7 @@ You can embed your 3D GitHub profile in any website using an iframe. Here's how:
 
 ```html
 <iframe 
-  src="https://theglowhub.vercel.app/embed?username=YOUR_USERNAME&theme=orange"
+  src="https://glowhub.pages.dev/embed?username=YOUR_USERNAME&theme=orange"
   width="100%" 
   height="600px" 
   frameborder="0" 
@@ -41,7 +41,7 @@ You can embed your 3D GitHub profile in any website using an iframe. Here's how:
 
 ```html
 <iframe 
-  src="https://theglowhub.vercel.app/embed?username=thomscoder&theme=green"
+  src="https://glowhub.pages.dev/embed?username=thomscoder&theme=green"
   width="100%" 
   height="600px" 
   frameborder="0" 
