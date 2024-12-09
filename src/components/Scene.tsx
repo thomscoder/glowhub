@@ -45,7 +45,7 @@ export const Scene = ({ _username }: Props) => {
         if (dataURL) {
           const link = document.createElement("a");
           link.href = dataURL;
-          link.download = "canvas-image.png"; // Filename for the downloaded file
+          link.download = `${username}-glowhub.png`; // Filename for the downloaded file
           link.click();
         }
       }
