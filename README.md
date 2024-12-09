@@ -6,7 +6,7 @@ Illuminate the room with your GitHub profile and a dynamic timeline of your cont
 
 <img src="https://github.com/user-attachments/assets/f3fe3e66-512d-4eb9-8e3e-2caab1abf674" width="50%" />
 
-[Try it out](glowhub.pages.dev)
+[Try it out](https://glowhub.pages.dev/YOURUSERNAME)
 
 ## Change the theme (orange, purple, green)
 
