@@ -156,7 +156,7 @@ export const GithubCard = ({ username = 'thomscoder' }: GithubCardProps) => {
 
         {/* Bio */}
         <Text
-          position={[0, -0.15, 0.06]}
+          position={[0, -0.2, 0.06]}
           fontSize={0.12}
           color="#9f9f9f"
           anchorX="center"
@@ -164,11 +164,11 @@ export const GithubCard = ({ username = 'thomscoder' }: GithubCardProps) => {
           maxWidth={2}
           textAlign="center"
         >
-          {userData.bio}
+          {userData.bio?.replace(/\r/g, '\n').replace(/\n/g, ' ')}
         </Text>
 
         {/* Stats */}
-        <group position={[0, -0.6, 0.06]}>
+        <group position={[0, -0.77, 0.06]}>
           <Text
             position={[-0.7, 0, 0]}
             fontSize={0.12}
