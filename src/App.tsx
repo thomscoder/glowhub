@@ -65,6 +65,27 @@ function App() {
             </svg>
           </a>
         )}
+        {pathname !== "/embed" && (
+          <div
+            rel="noopener noreferrer"
+            style={{
+              position: "fixed",
+              bottom: "20px",
+              left: "20px",
+              color: "white",
+              padding: "10px 20px",
+              borderRadius: "6px",
+              textDecoration: "none",
+              fontSize: "14px",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              zIndex: 1000,
+            }}
+          >
+            <p>Change the username in the URL</p>
+          </div>
+        )}
         <div style={containerStyle}>
           <Routes>
             <Route path="/:username" element={<Scene />} />
