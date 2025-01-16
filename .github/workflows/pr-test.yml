@@ -22,12 +22,16 @@ jobs:
           # Checkout PR branch
           ref: refs/pull/${{ github.event.issue.number }}/head
 
-      # Get PR SHA
-      - name: Get PR SHA
-        id: get-pr-info
+      - name: Debug Git Status
         run: |
-          PR_SHA=$(git rev-parse HEAD)
-          echo "sha=$PR_SHA" >> $GITHUB_OUTPUT
+          echo "Current branch:"
+          git branch --show-current
+          echo "\nGit status:"
+          git status
+          echo "\nRemote URLs:"
+          git remote -v
+          echo "\nAll files in repo:"
+          git ls-tree -r HEAD --name-only
 
       # Install pnpm first
       - name: Setup pnpm
@@ -54,35 +58,37 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: List directory contents
-        run: |
-          pwd
-          ls -la
-          ls -la scripts/
-
       - name: Run tests
         id: run-tests
         continue-on-error: true
         run: |
+          echo "Running tests with:"
+          echo "Target branch: ${{ steps.get-target-branch.outputs.target_branch }}"
+          echo "PR branch: ${{ github.event.pull_request.head.ref }}"
+          
+          # Trying direct access to find script
+          SCRIPT_LOCATIONS=(
+            "./scripts/runMinimalTests.js"
+            "scripts/runMinimalTests.js"
+            "../scripts/runMinimalTests.js"
+            "${GITHUB_WORKSPACE}/scripts/runMinimalTests.js"
+          )
+          
+          for loc in "${SCRIPT_LOCATIONS[@]}"; do
+            if [ -f "$loc" ]; then
+              echo "Found script at: $loc"
+              break
+            fi
+          done
+          
           set +e  # Don't exit on error
-          if [ -f "./scripts/runMinimalTests.js" ]; then
-            echo "Found test script"
-            pnpm test:minimal:pr ${{ steps.get-target-branch.outputs.target_branch }} ${{ github.event.pull_request.head.ref }} 2>&1 | tee test_output.txt
-          else
-            echo "Error: Cannot find test script at ./scripts/runMinimalTests.js"
-            echo "Current directory: $(pwd)"
-            ls -la
-            ls -la scripts/
-            exit 1
-          fi
+          pnpm test:minimal:pr ${{ steps.get-target-branch.outputs.target_branch }} ${{ github.event.pull_request.head.ref }} 2>&1 | tee test_output.txt
           TEST_EXIT_CODE=${PIPESTATUS[0]}
           
-          # Prepare the output
           echo "output<<EOF" >> $GITHUB_OUTPUT
           cat test_output.txt >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
           
-          # Set the status based on exit code
           if [ $TEST_EXIT_CODE -eq 0 ]; then
             echo "status=success" >> $GITHUB_OUTPUT
           else
