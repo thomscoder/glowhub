@@ -5,7 +5,6 @@
 describe('Basic Test Suite', () => {
     test('adds two numbers correctly', () => {
       const add = (a: number, b: number) => a + b;
-
       expect(add(2, 2)).toBe(4);
     });
   
