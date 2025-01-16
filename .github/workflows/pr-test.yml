@@ -74,22 +74,22 @@ jobs:
           fi
           
           echo "exit_code=$TEST_EXIT_CODE" >> $GITHUB_OUTPUT
-      - name: Create Status Check
-        uses: actions/github-script@v6
-        with:
-          script: |
-            const testStatus = '${{ steps.run-tests.outputs.status }}';
-            const testOutput = `${{ steps.run-tests.outputs.output }}`;
-            const exitCode = '${{ steps.run-tests.outputs.exit_code }}';
-            
-            await github.rest.repos.createCommitStatus({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              sha: '${{ steps.get-pr-info.outputs.sha }}',
-              state: testStatus === 'success' ? 'success' : 'failure',
-              target_url: `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
-              description: testStatus === 'success' 
-                ? 'Tests passed successfully!' 
-                : `Tests failed with exit code ${exitCode}`,
-              context: 'PR Tests'
-            });
+          - name: Create Status Check
+          uses: actions/github-script@v6
+          with:
+            script: |
+              const testStatus = '${{ steps.run-tests.outputs.status }}';
+              const testOutput = `${{ steps.run-tests.outputs.output }}`;
+              const exitCode = '${{ steps.run-tests.outputs.exit_code }}';
+              
+              await github.rest.repos.createCommitStatus({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                sha: '${{ steps.get-pr-info.outputs.sha }}',
+                state: testStatus === 'success' ? 'success' : 'failure',
+                target_url: `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+                description: testStatus === 'success' 
+                  ? 'Tests passed successfully!' 
+                  : `Tests failed with exit code ${exitCode}`,
+                context: 'PR Tests'
+              });
