@@ -5,6 +5,10 @@ on:
     types: [created]
   workflow_dispatch:
 
+permissions:
+  statuses: write
+  pull-requests: read
+
 jobs:
   test:
     if: ${{ github.event.issue.pull_request && contains(github.event.comment.body, 'run tests') }}
@@ -18,6 +22,21 @@ jobs:
           # Checkout PR branch
           ref: refs/pull/${{ github.event.issue.number }}/head
 
+      # Get PR SHA
+      - name: Get PR SHA
+        id: get-pr-info
+        run: |
+          PR_SHA=$(git rev-parse HEAD)
+          echo "sha=$PR_SHA" >> $GITHUB_OUTPUT
+
+      # Install pnpm first
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+          run_install: false
+
+      # Then setup Node.js with pnpm caching
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
@@ -36,10 +55,43 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run tests
-        run: pnpm test ${{ steps.get-target-branch.outputs.target_branch }} ${{ github.event.pull_request.head.ref }}
+        id: run-tests
+        continue-on-error: true
+        run: |
+          set +e  # Don't exit on error
+          pnpm test ${{ steps.get-target-branch.outputs.target_branch }} ${{ github.event.pull_request.head.ref }} 2>&1 | tee test_output.txt
+          TEST_EXIT_CODE=${PIPESTATUS[0]}
+          
+          # Prepare the output
+          echo "output<<EOF" >> $GITHUB_OUTPUT
+          cat test_output.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+          # Set the status based on exit code
+          if [ $TEST_EXIT_CODE -eq 0 ]; then
+            echo "status=success" >> $GITHUB_OUTPUT
+          else
+            echo "status=failure" >> $GITHUB_OUTPUT
+          fi
+          
+          echo "exit_code=$TEST_EXIT_CODE" >> $GITHUB_OUTPUT
 
-      - name: Add reaction to comment
-        uses: peter-evans/create-or-update-comment@v3
+      - name: Create Status Check
+        uses: actions/github-script@v6
         with:
-          comment-id: ${{ github.event.comment.id }}
-          reactions: 'rocket'
+          script: |
+            const testStatus = '${{ steps.run-tests.outputs.status }}';
+            const testOutput = `${{ steps.run-tests.outputs.output }}`;
+            const exitCode = '${{ steps.run-tests.outputs.exit_code }}';
+            
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: '${{ steps.get-pr-info.outputs.sha }}',
+              state: testStatus === 'success' ? 'success' : 'failure',
+              target_url: `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              description: testStatus === 'success' 
+                ? 'Tests passed successfully!' 
+                : `Tests failed with exit code ${exitCode}`,
+              context: 'PR Tests'
+            });
