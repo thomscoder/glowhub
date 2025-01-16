@@ -1,3 +1,4 @@
+// @ts-nocheck
 describe('Basic Test Suite', () => {
     test('adds two numbers correctly', () => {
       const add = (a: number, b: number) => a + b;
