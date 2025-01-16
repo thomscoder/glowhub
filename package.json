@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test:minimal:pr": "jest"
+    "test": "jest"
   },
   "dependencies": {
     "@react-three/drei": "^9.120.3",
