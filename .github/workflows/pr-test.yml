@@ -28,7 +28,6 @@ jobs:
         run: |
           PR_SHA=$(git rev-parse HEAD)
           echo "sha=$PR_SHA" >> $GITHUB_OUTPUT
-
       # Install pnpm first
       - name: Setup pnpm
         uses: pnpm/action-setup@v2
@@ -75,7 +74,6 @@ jobs:
           fi
           
           echo "exit_code=$TEST_EXIT_CODE" >> $GITHUB_OUTPUT
-
       - name: Create Status Check
         uses: actions/github-script@v6
         with:
