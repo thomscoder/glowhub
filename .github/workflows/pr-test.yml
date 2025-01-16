@@ -5,6 +5,10 @@ on:
     types: [created]
   workflow_dispatch:
 
+permissions:
+  statuses: write
+  pull-requests: read
+
 jobs:
   test:
     if: ${{ github.event.issue.pull_request && contains(github.event.comment.body, 'run tests') }}
@@ -72,7 +76,7 @@ jobs:
           
           echo "exit_code=$TEST_EXIT_CODE" >> $GITHUB_OUTPUT
 
-      - name: Create Check Run
+      - name: Create Status Check
         uses: actions/github-script@v6
         with:
           script: |
@@ -80,18 +84,14 @@ jobs:
             const testOutput = `${{ steps.run-tests.outputs.output }}`;
             const exitCode = '${{ steps.run-tests.outputs.exit_code }}';
             
-            await github.rest.checks.create({
+            await github.rest.repos.createCommitStatus({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              name: 'PR Tests',
-              head_sha: '${{ steps.get-pr-info.outputs.sha }}',
-              status: 'completed',
-              conclusion: testStatus === 'success' ? 'success' : 'failure',
-              output: {
-                title: testStatus === 'success' ? 'Tests Passed' : 'Tests Failed',
-                summary: testStatus === 'success' 
-                  ? '✅ All tests passed successfully!'
-                  : `❌ Tests failed with exit code ${exitCode}`,
-                text: '```\n' + testOutput + '\n```'
-              }
+              sha: '${{ steps.get-pr-info.outputs.sha }}',
+              state: testStatus === 'success' ? 'success' : 'failure',
+              target_url: `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              description: testStatus === 'success' 
+                ? 'Tests passed successfully!' 
+                : `Tests failed with exit code ${exitCode}`,
+              context: 'PR Tests'
             });
