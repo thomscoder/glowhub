@@ -63,43 +63,31 @@ jobs:
             echo "status=failure" >> $GITHUB_OUTPUT
           fi
           
-          # Make the test output available for subsequent steps
           echo "exit_code=$TEST_EXIT_CODE" >> $GITHUB_OUTPUT
 
-      - name: Create success comment
-        if: steps.run-tests.outputs.status == 'success'
-        uses: peter-evans/create-or-update-comment@v3
+      - name: Create Check Run
+        uses: actions/github-script@v6
         with:
-          issue-number: ${{ github.event.issue.number }}
-          body: |
-            ✅ Tests passed successfully!
+          script: |
+            const testStatus = '${{ steps.run-tests.outputs.status }}';
+            const testOutput = `${{ steps.run-tests.outputs.output }}`;
+            const exitCode = '${{ steps.run-tests.outputs.exit_code }}';
             
-            <details>
-            <summary>Test Output</summary>
-            
-            ```
-            ${{ steps.run-tests.outputs.output }}
-            ```
-            
-            </details>
-
-      - name: Create failure comment
-        if: steps.run-tests.outputs.status == 'failure'
-        uses: peter-evans/create-or-update-comment@v3
-        with:
-          issue-number: ${{ github.event.issue.number }}
-          body: |
-            ❌ Tests failed!
-            Exit code: ${{ steps.run-tests.outputs.exit_code }}
-            
-            <details>
-            <summary>Test Output</summary>
-            
-            ```
-            ${{ steps.run-tests.outputs.output }}
-            ```
-            
-            </details>
+            await github.rest.checks.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: 'PR Tests',
+              head_sha: context.payload.issue.pull_request.head.sha,
+              status: 'completed',
+              conclusion: testStatus === 'success' ? 'success' : 'failure',
+              output: {
+                title: testStatus === 'success' ? 'Tests Passed' : 'Tests Failed',
+                summary: testStatus === 'success' 
+                  ? '✅ All tests passed successfully!'
+                  : `❌ Tests failed with exit code ${exitCode}`,
+                text: '```\n' + testOutput + '\n```'
+              }
+            });
 
       - name: Add reaction to comment
         uses: peter-evans/create-or-update-comment@v3
