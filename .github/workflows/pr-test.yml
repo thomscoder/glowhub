@@ -47,15 +47,24 @@ jobs:
         id: run-tests
         continue-on-error: true
         run: |
-          OUTPUT=$(pnpm test:minimal:pr ${{ steps.get-target-branch.outputs.target_branch }} ${{ github.event.pull_request.head.ref }} 2>&1)
+          set +e  # Don't exit on error
+          pnpm test:minimal:pr ${{ steps.get-target-branch.outputs.target_branch }} ${{ github.event.pull_request.head.ref }} 2>&1 | tee test_output.txt
+          TEST_EXIT_CODE=${PIPESTATUS[0]}
+          
+          # Prepare the output
           echo "output<<EOF" >> $GITHUB_OUTPUT
-          echo "$OUTPUT" >> $GITHUB_OUTPUT
+          cat test_output.txt >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
-          if [ $? -eq 0 ]; then
+          
+          # Set the status based on exit code
+          if [ $TEST_EXIT_CODE -eq 0 ]; then
             echo "status=success" >> $GITHUB_OUTPUT
           else
             echo "status=failure" >> $GITHUB_OUTPUT
           fi
+          
+          # Make the test output available for subsequent steps
+          echo "exit_code=$TEST_EXIT_CODE" >> $GITHUB_OUTPUT
 
       - name: Create success comment
         if: steps.run-tests.outputs.status == 'success'
@@ -81,6 +90,7 @@ jobs:
           issue-number: ${{ github.event.issue.number }}
           body: |
             ❌ Tests failed!
+            Exit code: ${{ steps.run-tests.outputs.exit_code }}
             
             <details>
             <summary>Test Output</summary>
