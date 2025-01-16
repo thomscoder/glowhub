@@ -58,7 +58,7 @@ jobs:
         continue-on-error: true
         run: |
           set +e  # Don't exit on error
-          pnpm test --passWithNoTests ${{ steps.get-target-branch.outputs.target_branch }} ${{ github.event.pull_request.head.ref }} 2>&1 | tee test_output.txt
+          pnpm test ${{ steps.get-target-branch.outputs.target_branch }} ${{ github.event.pull_request.head.ref }} 2>&1 | tee test_output.txt
           TEST_EXIT_CODE=${PIPESTATUS[0]}
           
           echo "output<<EOF" >> $GITHUB_OUTPUT
