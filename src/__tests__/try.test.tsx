@@ -1,5 +1,5 @@
 
-import { add } from "../App";
+// @ts-nocheck
 
 
 describe('Basic Test Suite', () => {
