@@ -1,0 +1,45 @@
+name: PR Comment Test Runner
+
+on:
+  issue_comment:
+    types: [created]
+  workflow_dispatch:
+
+jobs:
+  test:
+    if: ${{ github.event.issue.pull_request && contains(github.event.comment.body, 'run tests') }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          # Fetch all history and tags
+          fetch-depth: 0
+          # Checkout PR branch
+          ref: refs/pull/${{ github.event.issue.number }}/head
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'pnpm'
+
+      - name: Get target branch
+        id: get-target-branch
+        run: |
+          TARGET_BRANCH=$(gh pr view ${{ github.event.issue.number }} --json baseRefName -q .baseRefName)
+          echo "target_branch=$TARGET_BRANCH" >> $GITHUB_OUTPUT
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run tests
+        run: pnpm test ${{ steps.get-target-branch.outputs.target_branch }} ${{ github.event.pull_request.head.ref }}
+
+      - name: Add reaction to comment
+        uses: peter-evans/create-or-update-comment@v3
+        with:
+          comment-id: ${{ github.event.comment.id }}
+          reactions: 'rocket'
