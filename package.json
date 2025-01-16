@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "jest"
+    "test:minimal:pr": "node ./scripts/runMinimalTests.js",
+    "test": "jest --bail --findRelatedTests --passWithNoTests"
   },
   "jest": {
     "preset": "ts-jest",
@@ -37,6 +38,7 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.20.1",
+    "simple-git": "^3.27.0",
     "three": "^0.171.0"
   },
   "devDependencies": {
