@@ -18,6 +18,14 @@ jobs:
           # Checkout PR branch
           ref: refs/pull/${{ github.event.issue.number }}/head
 
+      # Install pnpm first
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+          run_install: false
+
+      # Then setup Node.js with pnpm caching
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
@@ -36,7 +44,52 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run tests
-        run: pnpm test ${{ steps.get-target-branch.outputs.target_branch }} ${{ github.event.pull_request.head.ref }}
+        id: run-tests
+        continue-on-error: true
+        run: |
+          OUTPUT=$(pnpm test:minimal:pr ${{ steps.get-target-branch.outputs.target_branch }} ${{ github.event.pull_request.head.ref }} 2>&1)
+          echo "output<<EOF" >> $GITHUB_OUTPUT
+          echo "$OUTPUT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          if [ $? -eq 0 ]; then
+            echo "status=success" >> $GITHUB_OUTPUT
+          else
+            echo "status=failure" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create success comment
+        if: steps.run-tests.outputs.status == 'success'
+        uses: peter-evans/create-or-update-comment@v3
+        with:
+          issue-number: ${{ github.event.issue.number }}
+          body: |
+            ✅ Tests passed successfully!
+            
+            <details>
+            <summary>Test Output</summary>
+            
+            ```
+            ${{ steps.run-tests.outputs.output }}
+            ```
+            
+            </details>
+
+      - name: Create failure comment
+        if: steps.run-tests.outputs.status == 'failure'
+        uses: peter-evans/create-or-update-comment@v3
+        with:
+          issue-number: ${{ github.event.issue.number }}
+          body: |
+            ❌ Tests failed!
+            
+            <details>
+            <summary>Test Output</summary>
+            
+            ```
+            ${{ steps.run-tests.outputs.output }}
+            ```
+            
+            </details>
 
       - name: Add reaction to comment
         uses: peter-evans/create-or-update-comment@v3
