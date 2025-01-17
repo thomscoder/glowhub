@@ -9,7 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test:minimal:pr": "node ./scripts/runMinimalTests.js",
-    "test": "jest --bail --findRelatedTests --passWithNoTests"
+    "test": "jest"
   },
   "jest": {
     "preset": "ts-jest",

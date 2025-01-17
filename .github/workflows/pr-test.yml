@@ -53,7 +53,7 @@ jobs:
           PR_INFO='${{ steps.pr-info.outputs.result }}'
           BASE_REF=$(echo $PR_INFO | jq -r '.base_ref')
           HEAD_REF=$(echo $PR_INFO | jq -r '.head_ref')
-          pnpm test:minimal:pr "$BASE_REF" "$HEAD_REF"
+          pnpm test
           echo "exit_code=$?" >> $GITHUB_OUTPUT
         
       - name: Create Check Run
