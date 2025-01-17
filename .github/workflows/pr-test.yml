@@ -54,6 +54,7 @@ jobs:
           BASE_REF=$(echo $PR_INFO | jq -r '.base_ref')
           HEAD_REF=$(echo $PR_INFO | jq -r '.head_ref')
           pnpm test:minimal:pr "$BASE_REF" "$HEAD_REF"
+          echo "exit_code=$?" >> $GITHUB_OUTPUT
         
       - name: Create Check Run
         if: always()
@@ -61,7 +62,11 @@ jobs:
         with:
           script: |
             const pr_info = JSON.parse(process.env.PR_INFO);
-            const conclusion = process.env.TEST_EXIT_CODE === '0' ? 'success' : 'failure';
+            const exitCode = Number(process.env.EXIT_CODE);
+            const conclusion = exitCode === 0 ? 'success' : 'failure';
+            
+            console.log('Test exit code:', exitCode);
+            console.log('Check conclusion:', conclusion);
             
             await github.rest.checks.create({
               ...context.repo,
@@ -78,3 +83,4 @@ jobs:
             });
         env:
           PR_INFO: ${{ steps.pr-info.outputs.result }}
+          EXIT_CODE: ${{ steps.run-tests.outputs.exit_code }}
