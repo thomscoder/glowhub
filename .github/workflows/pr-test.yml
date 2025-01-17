@@ -6,27 +6,34 @@ on:
 
 jobs:
   test:
-    # Only run if the comment is on a PR and contains "run tests"
     if: ${{ github.event.issue.pull_request && contains(github.event.comment.body, 'run tests') }}
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+      checks: write
+      contents: read
     
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Required to fetch all branches
-      
-      - name: Get PR branch
-        id: get-pr-branch
+      - name: Get PR information
+        id: pr-info
         uses: actions/github-script@v7
         with:
           script: |
-            const { data: pr } = await github.rest.pulls.get({
-              owner: context.repo.owner,
-              repo: context.repo.name,
+            const { data: pullRequest } = await github.rest.pulls.get({
+              ...context.repo,
               pull_number: context.issue.number
             });
-            return pr.head.ref;
-      
+            console.log('PR Info:', pullRequest);
+            return {
+              head_ref: pullRequest.head.ref,
+              head_sha: pullRequest.head.sha,
+              base_ref: pullRequest.base.ref
+            }
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -42,20 +49,24 @@ jobs:
         
       - name: Run tests
         id: run-tests
-        run: pnpm test:minimal:pr ${{ github.event.pull_request.base.ref }} ${{ steps.get-pr-branch.outputs.result }}
+        run: |
+          PR_INFO='${{ steps.pr-info.outputs.result }}'
+          BASE_REF=$(echo $PR_INFO | jq -r '.base_ref')
+          HEAD_REF=$(echo $PR_INFO | jq -r '.head_ref')
+          pnpm test:minimal:pr "$BASE_REF" "$HEAD_REF"
         
-      - name: Update Check Run
-        uses: actions/github-script@v7
+      - name: Create Check Run
         if: always()
+        uses: actions/github-script@v7
         with:
           script: |
+            const pr_info = JSON.parse(process.env.PR_INFO);
             const conclusion = process.env.TEST_EXIT_CODE === '0' ? 'success' : 'failure';
             
             await github.rest.checks.create({
-              owner: context.repo.owner,
-              repo: context.repo.name,
+              ...context.repo,
               name: 'PR Tests',
-              head_sha: context.payload.pull_request.head.sha,
+              head_sha: pr_info.head_sha,
               status: 'completed',
               conclusion: conclusion,
               output: {
@@ -65,3 +76,5 @@ jobs:
                   : '❌ Some tests have failed. Please check the test output for details.'
               }
             });
+        env:
+          PR_INFO: ${{ steps.pr-info.outputs.result }}
