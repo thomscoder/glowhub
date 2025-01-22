@@ -1,86 +1,102 @@
-name: PR Test Runner
+name: PR Comment Test Runner
 
 on:
   issue_comment:
     types: [created]
+  workflow_dispatch:
+
+permissions:
+  statuses: write
+  pull-requests: read
 
 jobs:
   test:
     if: ${{ github.event.issue.pull_request && contains(github.event.comment.body, 'run tests') }}
     runs-on: ubuntu-latest
-    permissions:
-      pull-requests: read
-      checks: write
-      contents: read
-    
-    steps:
-      - name: Get PR information
-        id: pr-info
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const { data: pullRequest } = await github.rest.pulls.get({
-              ...context.repo,
-              pull_number: context.issue.number
-            });
-            console.log('PR Info:', pullRequest);
-            return {
-              head_ref: pullRequest.head.ref,
-              head_sha: pullRequest.head.sha,
-              base_ref: pullRequest.base.ref
-            }
 
-      - uses: actions/checkout@v4
+    steps:
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
-          
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          
+          ref: refs/pull/${{ github.event.issue.number }}/head
+
+      # Verify we're on the correct branch
+      - name: Verify branch
+        run: |
+          echo "Current branch:"
+          git branch --show-current
+          echo "Current commit:"
+          git rev-parse HEAD
+
+      # Get PR SHA
+      - name: Get PR SHA
+        id: get-pr-info
+        run: |
+          PR_SHA=$(git rev-parse HEAD)
+          echo "sha=$PR_SHA" >> $GITHUB_OUTPUT
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v2
         with:
           version: 8
-          
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'pnpm'
+
+      - name: Get target branch
+        id: get-target-branch
+        run: |
+          TARGET_BRANCH=$(gh pr view ${{ github.event.issue.number }} --json baseRefName -q .baseRefName)
+          echo "target_branch=$TARGET_BRANCH" >> $GITHUB_OUTPUT
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Install dependencies
-        run: pnpm install
-        
+        run: pnpm install --frozen-lockfile
+
       - name: Run tests
         id: run-tests
         run: |
-          PR_INFO='${{ steps.pr-info.outputs.result }}'
-          BASE_REF=$(echo $PR_INFO | jq -r '.base_ref')
-          HEAD_REF=$(echo $PR_INFO | jq -r '.head_ref')
-          pnpm test
-          echo "exit_code=$?" >> $GITHUB_OUTPUT
-        
-      - name: Create Check Run
-        if: always()
-        uses: actions/github-script@v7
+          set +e  # Don't exit on error
+          pnpm test 2>&1 | tee test_output.txt
+          TEST_EXIT_CODE=${PIPESTATUS[0]}
+          
+          # Prepare the output
+          echo "output<<EOF" >> $GITHUB_OUTPUT
+          cat test_output.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+          # Set the status based on exit code
+          if [ $TEST_EXIT_CODE -eq 0 ]; then
+            echo "status=success" >> $GITHUB_OUTPUT
+          else
+            echo "status=failure" >> $GITHUB_OUTPUT
+          fi
+          
+          echo "exit_code=$TEST_EXIT_CODE" >> $GITHUB_OUTPUT
+          exit $TEST_EXIT_CODE  # This is important - make the step fail if tests fail
+
+      - name: Create Status Check
+        if: always()  # Run even if tests fail
+        uses: actions/github-script@v6
         with:
           script: |
-            const pr_info = JSON.parse(process.env.PR_INFO);
-            const exitCode = Number(process.env.EXIT_CODE);
-            const conclusion = exitCode === 0 ? 'success' : 'failure';
+            const testStatus = '${{ steps.run-tests.outputs.status }}';
+            const testOutput = `${{ steps.run-tests.outputs.output }}`;
+            const exitCode = '${{ steps.run-tests.outputs.exit_code }}';
             
-            console.log('Test exit code:', exitCode);
-            console.log('Check conclusion:', conclusion);
-            
-            await github.rest.checks.create({
-              ...context.repo,
-              name: 'PR Tests',
-              head_sha: pr_info.head_sha,
-              status: 'completed',
-              conclusion: conclusion,
-              output: {
-                title: conclusion === 'success' ? 'Tests passed' : 'Tests failed',
-                summary: conclusion === 'success' 
-                  ? '✅ All tests have passed successfully'
-                  : '❌ Some tests have failed. Please check the test output for details.'
-              }
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: '${{ steps.get-pr-info.outputs.sha }}',
+              state: testStatus === 'success' ? 'success' : 'failure',
+              target_url: `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              description: testStatus === 'success' 
+                ? 'Tests passed successfully!' 
+                : `Tests failed with exit code ${exitCode}`,
+              context: 'PR Tests'
             });
-        env:
-          PR_INFO: ${{ steps.pr-info.outputs.result }}
-          EXIT_CODE: ${{ steps.run-tests.outputs.exit_code }}
