@@ -20,7 +20,6 @@ jobs:
           fetch-depth: 0
           ref: refs/pull/${{ github.event.issue.number }}/head
 
-      # Verify we're on the correct branch
       - name: Verify branch
         run: |
           echo "Current branch:"
@@ -28,7 +27,6 @@ jobs:
           echo "Current commit:"
           git rev-parse HEAD
 
-      # Get PR SHA
       - name: Get PR SHA
         id: get-pr-info
         run: |
@@ -65,38 +63,44 @@ jobs:
           pnpm test 2>&1 | tee test_output.txt
           TEST_EXIT_CODE=${PIPESTATUS[0]}
           
-          # Prepare the output
-          echo "output<<EOF" >> $GITHUB_OUTPUT
-          cat test_output.txt >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-          
-          # Set the status based on exit code
-          if [ $TEST_EXIT_CODE -eq 0 ]; then
-            echo "status=success" >> $GITHUB_OUTPUT
-          else
-            echo "status=failure" >> $GITHUB_OUTPUT
-          fi
-          
-          echo "exit_code=$TEST_EXIT_CODE" >> $GITHUB_OUTPUT
-          exit $TEST_EXIT_CODE  # This is important - make the step fail if tests fail
+          # Prepare the output, ensuring proper escaping
+          {
+            echo "output<<EOF"
+            cat test_output.txt
+            echo "EOF"
+            
+            if [ $TEST_EXIT_CODE -eq 0 ]; then
+              echo "status=success"
+            else
+              echo "status=failure"
+            fi
+            
+            echo "exit_code=$TEST_EXIT_CODE"
+          } >> $GITHUB_OUTPUT
 
       - name: Create Status Check
-        if: always()  # Run even if tests fail
+        if: always()
         uses: actions/github-script@v6
         with:
           script: |
-            const testStatus = '${{ steps.run-tests.outputs.status }}';
-            const testOutput = `${{ steps.run-tests.outputs.output }}`;
-            const exitCode = '${{ steps.run-tests.outputs.exit_code }}';
-            
-            await github.rest.repos.createCommitStatus({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              sha: '${{ steps.get-pr-info.outputs.sha }}',
-              state: testStatus === 'success' ? 'success' : 'failure',
-              target_url: `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
-              description: testStatus === 'success' 
-                ? 'Tests passed successfully!' 
-                : `Tests failed with exit code ${exitCode}`,
-              context: 'PR Tests'
-            });
+            try {
+              const testStatus = '${{ steps.run-tests.outputs.status }}';
+              const exitCode = '${{ steps.run-tests.outputs.exit_code }}';
+              
+              const statusData = {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                sha: '${{ steps.get-pr-info.outputs.sha }}',
+                state: testStatus === 'success' ? 'success' : 'failure',
+                target_url: `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+                description: testStatus === 'success' 
+                  ? 'Tests passed successfully!' 
+                  : `Tests failed with exit code ${exitCode}`,
+                context: 'PR Tests'
+              };
+              
+              await github.rest.repos.createCommitStatus(statusData);
+            } catch (error) {
+              console.error('Error creating status check:', error);
+              core.setFailed(error.message);
+            }
