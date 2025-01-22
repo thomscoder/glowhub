@@ -4,6 +4,7 @@ import "./App.css";
 import { Scene } from "./components/Scene";
 import { EmbedPage } from "./pages/Embed";
 
+export const add = (a: number, b: number) => a + b;
 function App() {
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const pathname = window.location.pathname;
