@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "jest --onlyChanged"
+    "test": "jest"
   },
   "jest": {
     "preset": "ts-jest",
